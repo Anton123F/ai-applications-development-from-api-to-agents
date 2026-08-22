@@ -12,20 +12,24 @@ from t1_llm_api.openai.chat.completions.custom_client import CustomOpenAIClient
 #     system_prompt=DEFAULT_SYSTEM_PROMPT,
 # )
 
-
 openai_client = OpenAIClient(
     endpoint=OPENAI_CHAT_COMPLETIONS_ENDPOINT,
     model_name='gpt-5.6-terra-2026-07-09',
     api_key=OPENAI_API_KEY,
     system_prompt=DEFAULT_SYSTEM_PROMPT,
 )
-# openai_custom_client = CustomOpenAIClient(
-#     endpoint=OPENAI_CHAT_COMPLETIONS_ENDPOINT,
-#     model_name='gpt-5.2',
-#     api_key=OPENAI_API_KEY,
-#     system_prompt=DEFAULT_SYSTEM_PROMPT,
+
+openai_custom_client = CustomOpenAIClient(
+    endpoint=OPENAI_CHAT_COMPLETIONS_ENDPOINT,
+    model_name='gpt-5.6-terra-2026-07-09',
+    api_key=OPENAI_API_KEY,
+    system_prompt=DEFAULT_SYSTEM_PROMPT,
+)
+
+# asyncio.run(
+#     start(True, openai_client)
 # )
 
 asyncio.run(
-    start(False, openai_client)
+    start(True, openai_custom_client)
 )

@@ -6,3 +6,4 @@ class Role(StrEnum):
     USER = "user"
     ASSISTANT = "assistant"
     TOOL = "tool"
+    MODEL = "model"

@@ -43,7 +43,29 @@ class CustomOpenAIClient(BaseOpenAIClient):
         # - Parse response
         # - Print response to console
         # - Return ASSISTANT message
-        raise NotImplementedError
+        raw_end_point = f"{self._endpoint}/openai/deployments/{self._model_name}/chat/completions?api-version=2025-04-01-preview"
+        custom_headers = {
+            "Content-Type": "application/json",
+            "api-key": self._api_key.replace("Bearer ", "")
+        }
+        all_messages = [{"role": "system", "content": self._system_prompt}] + [m.to_dict() for m in messages]
+        data = {
+            "model": self._model_name, 
+            "messages": all_messages
+        }
+
+        raw_response = requests.post(url=raw_end_point, json=data, headers=custom_headers)
+
+        if raw_response.status_code != 200:
+            raise Exception(f"HTTP request failed with status code {raw_response.status_code} {raw_response.text}")
+
+        response = raw_response.json()
+        
+        if not response.get('choices'):
+            raise ValueError("API response contains no choices.")
+
+        raw_message = response.get('choices')[0]["message"]["content"]
+        return Message(role=Role.ASSISTANT, content=raw_message)
 
     async def stream_response(self, messages: list[Message], **kwargs) -> Message:
         """
@@ -73,4 +95,37 @@ class CustomOpenAIClient(BaseOpenAIClient):
         # - Parse response
         # - Print chunks to console
         # - Return ASSISTANT message
-        raise NotImplementedError
+        raw_end_point = f"{self._endpoint}/openai/deployments/{self._model_name}/chat/completions?api-version=2025-04-01-preview"
+        custom_headers = {
+            "Content-Type": "application/json",
+            "api-key": self._api_key.replace("Bearer ", "")
+        }
+        all_messages = [{"role": "system", "content": self._system_prompt}] + [m.to_dict() for m in messages]
+        data = {
+            "model": self._model_name, 
+            "messages": all_messages,
+            "stream": True
+        }
+
+        assistant_content = ""
+        async with aiohttp.ClientSession() as session:
+            async with session.post(raw_end_point, json=data, headers=custom_headers) as response:
+                if response.status != 200:
+                    raise Exception(f"HTTP request failed with status {response.status}: {await response.text()}")
+                async for line_bytes in response.content:
+                    line = line_bytes.decode().strip()
+                    if not line:
+                        continue
+                    if not line.startswith("data: "):
+                        continue
+                    line = line[len("data: "):]
+                    if line == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(line)
+                        content = chunk["choices"][0]["delta"].get("content", "") or ""
+                        print(content, end="", flush=True)
+                        assistant_content += content
+                    except Exception as e:
+                        print(f"\nError parsing line: {e}")
+        return Message(role=Role.ASSISTANT, content=assistant_content)

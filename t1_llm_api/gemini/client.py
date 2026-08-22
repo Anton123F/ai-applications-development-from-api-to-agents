@@ -31,7 +31,8 @@ class GeminiAIClient(AIClient):
         #TODO:
         # Call to __init__ of super class
         # Add genai.Client https://ai.google.dev/gemini-api/docs/text-generation#python_4
-        raise NotImplementedError
+        super().__init__(endpoint=endpoint, model_name=model_name, api_key=api_key, system_prompt=system_prompt)
+        self._client = genai.Client(api_key=api_key)
 
     def response(self, messages: list[Message], **kwargs) -> Message:
         """
@@ -53,7 +54,11 @@ class GeminiAIClient(AIClient):
         # - Call client
         # - Print response to console
         # - Return ASSISTANT message
-        raise NotImplementedError
+        all_messages = [{"role": "model" if m.role == Role.ASSISTANT else m.role, "parts": [{"text": m.content}]} for m in messages]
+        response = self._client.models.generate_content(model=self._model_name, contents=all_messages, config=types.GenerateContentConfig(system_instruction=self._system_prompt))
+        raw_messages = response.text
+        return Message(role=Role.MODEL, content=raw_messages)
+
 
     async def stream_response(self, messages: list[Message], **kwargs) -> Message:
         """
@@ -79,4 +84,10 @@ class GeminiAIClient(AIClient):
         # - Handle stream with chunks
         # - Print response to console
         # - Return ASSISTANT message
-        raise NotImplementedError
+        assistant_content = []
+        all_messages = [{"role": "model" if m.role == Role.ASSISTANT else m.role, "parts" : [{"text": m.content}]} for m in messages]
+        stream_responses = await self._client.aio.models.generate_content_stream(model=self._model_name, contents=all_messages, config=types.GenerateContentConfig(system_instruction=self._system_prompt))
+        async for chunk in stream_responses:
+            assistant_content.append(chunk.text)
+            print(chunk.text, end="", flush=True)
+        return Message(role=Role.MODEL, content="".join(assistant_content))

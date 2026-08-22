@@ -1,4 +1,5 @@
 from openai import OpenAI, AsyncOpenAI
+from openai import AzureOpenAI, AsyncAzureOpenAI
 
 from commons.models.message import Message
 from commons.models.role import Role
@@ -33,7 +34,10 @@ class OpenAIResponsesClient(BaseOpenAIClient):
         # Call to __init__ of super class
         # Add OpenAI and AsyncOpenAI clients https://github.com/openai/openai-python?tab=readme-ov-file#usage
         # (In readme you can find samples with both of these clients)
-        raise NotImplementedError
+        super().__init__(endpoint=endpoint, model_name=model_name, system_prompt=system_prompt, api_key=api_key)
+        self._client = AzureOpenAI(api_key=api_key, api_version="2025-04-01-preview", azure_endpoint=endpoint)
+        self._async_client = AsyncAzureOpenAI(api_key=api_key, api_version="2025-04-01-preview", azure_endpoint=endpoint)
+
 
     def response(self, messages: list[Message], **kwargs) -> Message:
         """
@@ -55,7 +59,9 @@ class OpenAIResponsesClient(BaseOpenAIClient):
         # - Call client
         # - Print response to console
         # - Return ASSISTANT message
-        raise NotImplementedError
+        input_messages = [message.to_dict() for message in messages]
+        responses = self._client.responses.create(model=self._model_name, input=input_messages, instructions=self._system_prompt)
+        return Message(role=Role.ASSISTANT, content=responses.output_text)
 
     async def stream_response(self, messages: list[Message], **kwargs) -> Message:
         """

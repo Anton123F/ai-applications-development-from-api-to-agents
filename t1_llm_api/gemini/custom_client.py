@@ -44,7 +44,41 @@ class CustomGeminiAIClient(AIClient):
         # - Parse response
         # - Print response to console
         # - Return ASSISTANT message
-        raise NotImplementedError
+        headers = {
+            "x-goog-api-key": self._api_key,
+            "Content-Type": "application/json",
+        }
+
+        contents = []
+        for msg in messages:
+            if msg.role == Role.SYSTEM:
+                continue
+            role = "model" if msg.role in (Role.ASSISTANT, Role.MODEL) else "user"
+            contents.append({"role": role, "parts": [{"text": msg.content}]})
+
+        body = {
+            "contents": contents,
+            "system_instruction": {"parts": [{"text": self._system_prompt}]},
+            "generationConfig": {"maxOutputTokens": kwargs.get("max_tokens", 1024)},
+        }
+
+        url = f"{self._endpoint}/{self._model_name}:generateContent"
+        resp = requests.post(url, headers=headers, json=body)
+        if resp.status_code != 200:
+            raise Exception(f"HTTP {resp.status_code}: {resp.text}")
+
+        data = resp.json()
+        candidates = data.get("candidates")
+        if not candidates:
+            raise ValueError("No candidates in response")
+
+        text = "".join(
+            part["text"]
+            for part in candidates[0]["content"]["parts"]
+            if "text" in part
+        )
+        return Message(role=Role.ASSISTANT, content=text)
+
 
     async def stream_response(self, messages: list[Message], **kwargs) -> Message:
         """
@@ -75,4 +109,46 @@ class CustomGeminiAIClient(AIClient):
         # - Parse response
         # - Print chunks to console
         # - Return ASSISTANT message
-        raise NotImplementedError
+        headers = {
+            "x-goog-api-key": self._api_key,
+            "Content-Type": "application/json",
+        }
+
+        contents = []
+        for msg in messages:
+            if msg.role == Role.SYSTEM:
+                continue
+            role = "model" if msg.role in (Role.ASSISTANT, Role.MODEL) else "user"
+            contents.append({"role": role, "parts": [{"text": msg.content}]})
+
+        body = {
+            "contents": contents,
+            "system_instruction": {"parts": [{"text": self._system_prompt}]},
+            "generationConfig": {"maxOutputTokens": kwargs.get("max_tokens", 1024)},
+        }
+
+        url = f"{self._endpoint}/{self._model_name}:streamGenerateContent?alt=sse"
+
+        chunks = []
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=body) as resp:
+                if resp.status != 200:
+                    raise Exception(f"HTTP {resp.status}: {await resp.text()}")
+
+                async for line in resp.content:
+                    line = line.decode("utf-8").strip()
+                    if not line.startswith("data: "):
+                        continue
+
+                    chunk_data = json.loads(line[6:])
+                    candidates = chunk_data.get("candidates")
+                    if not candidates:
+                        continue
+
+                    for part in candidates[0]["content"]["parts"]:
+                        if "text" in part:
+                            print(part["text"], end="", flush=True)
+                            chunks.append(part["text"])
+
+        print()
+        return Message(role=Role.ASSISTANT, content="".join(chunks))

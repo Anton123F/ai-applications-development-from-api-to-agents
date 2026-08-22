@@ -60,8 +60,6 @@ class OpenAIClient(BaseOpenAIClient):
         # - Return ASSISTANT message
         all_messages = [{"role": "system", "content": self._system_prompt}] + [m.to_dict() for m in messages]
         completion  = self._client.chat.completions.create(model=self._model_name, messages=all_messages)
-        print('====> completion')
-        print(completion)
         raw_message = completion.choices[0].message
         return Message(role=Role.ASSISTANT, content=raw_message.content)
 
@@ -92,9 +90,11 @@ class OpenAIClient(BaseOpenAIClient):
         all_messages = [{"role": "system", "content": self._system_prompt}] + [m.to_dict() for m in messages]
         stream_completion = await self._async_client.chat.completions.create(model=self._model_name, messages=all_messages, stream=True)
         assistant_content = ""
+
         async for stream in stream_completion:
             if stream.choices[0].delta.content is not None:
                 print(stream.choices[0].delta.content, end="", flush=True)
                 assistant_content += stream.choices[0].delta.content
+
         print(f"AI: {assistant_content}")
         return Message(role=Role.ASSISTANT, content=assistant_content)

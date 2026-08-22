@@ -36,7 +36,6 @@ async def start(stream: bool, client: AIClient) -> None:
             client_response: Message = await client.stream_response(user_conversation.get_messages())
         else:
             client_response: Message = client.response(user_conversation.get_messages())
-
-        print(f"AI: {client_response.content}")
+            print(f"AI: {client_response.content}")
 
         user_conversation.add_message(client_response)
