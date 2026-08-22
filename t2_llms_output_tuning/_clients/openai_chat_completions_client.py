@@ -18,8 +18,8 @@ class OpenAIChatCompletionsClient(AIClient):
         super().__init__(
             endpoint=OPENAI_CHAT_COMPLETIONS_ENDPOINT,
             model_name=model_name,
-            api_key=f"Bearer {api_key}",
-            api_key_header_name="Authorization"
+            api_key=api_key,
+            api_key_header_name="api-key"
         )
 
     def response(
@@ -30,7 +30,7 @@ class OpenAIChatCompletionsClient(AIClient):
             **kwargs
     ) -> Message:
         headers = {
-            "Authorization": self._api_key,
+            "api-key": self._api_key,
             "Content-Type": "application/json"
         }
         request_data = {
@@ -41,7 +41,8 @@ class OpenAIChatCompletionsClient(AIClient):
         if print_request:
             self._print_request(request_data, headers)
 
-        response = requests.post(url=self._endpoint, headers=headers, json=request_data)
+        url = f"{self._endpoint}/openai/deployments/{self._model_name}/chat/completions?api-version=2025-04-01-preview"
+        response = requests.post(url=url, headers=headers, json=request_data)
 
         if response.status_code == 200:
             data = response.json()

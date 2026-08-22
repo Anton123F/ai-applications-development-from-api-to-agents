@@ -2,7 +2,7 @@ import json
 
 from openai import OpenAI
 
-from commons.constants import OPENAI_API_KEY, OPENAI_RESPONSES_ENDPOINT
+from commons.constants import OPENAI_API_KEY, DIAL_HOST
 from t2_llms_output_tuning._clients._base_client import AIClient
 from commons.models.message import Message
 from commons.models.role import Role
@@ -16,12 +16,16 @@ class OpenAIResponsesClient(AIClient):
             raise ValueError("API key cannot be null or empty")
 
         super().__init__(
-            endpoint=OPENAI_RESPONSES_ENDPOINT,
+            endpoint=DIAL_HOST,
             model_name=model_name,
-            api_key=f"Bearer {api_key}",
-            api_key_header_name="Authorization"
+            api_key=api_key,
+            api_key_header_name="api-key"
         )
-        self._client = OpenAI(api_key=api_key)
+        self._client = OpenAI(
+            api_key=api_key,
+            base_url=f"{DIAL_HOST}/openai/v1",
+            default_headers={"api-key": api_key},
+        )
 
     def response(
             self,
@@ -39,7 +43,7 @@ class OpenAIResponsesClient(AIClient):
         }
         if print_request:
             headers = {
-                "Authorization": self._api_key,
+                "api-key": self._api_key,
                 "Content-Type": "application/json"
             }
             self._print_request(request_data, headers)
