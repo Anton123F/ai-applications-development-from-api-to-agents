@@ -1,14 +1,16 @@
+import openai
 import os
 
 from langchain_community.document_loaders import TextLoader
 from langchain_community.vectorstores import FAISS
-from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.vectorstores import VectorStore
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import AzureOpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import SecretStr
 
-from commons.constants import OPENAI_API_KEY
+from commons.constants import OPENAI_API_KEY, DIAL_HOST, DIAL_API_VERSION
+
+_LLM_DEPLOYMENT = "gpt-5.2-2025-12-11"
 
 #TODO:
 # Create system prompt with:
@@ -33,7 +35,7 @@ _USER_PROMPT = """##RAG CONTEXT:
 
 class MicrowaveRAG:
 
-    def __init__(self, embeddings: OpenAIEmbeddings, llm_client: ChatOpenAI):
+    def __init__(self, embeddings: AzureOpenAIEmbeddings, llm_client: openai.AzureOpenAI):
         self.llm_client = llm_client
         self.embeddings = embeddings
         self.vectorstore = self._setup_vectorstore()
@@ -50,7 +52,13 @@ class MicrowaveRAG:
         # - If yes, load the index from disk using FAISS.load_local()
         # - If no, call _create_new_index() to build and save a fresh index
         # - Return the vectorstore
-        raise NotImplementedError
+        print("Setting up vectorstore...")
+        index_path = "microwave_faiss_index"
+        if os.path.exists(index_path):
+            print(f"Loading existing FAISS index from '{index_path}'.")
+            return FAISS.load_local(index_path, self.embeddings, allow_dangerous_deserialization=True)
+        print("No existing index found. Creating a new one.")
+        return self._create_new_index()
 
     def _create_new_index(self) -> VectorStore:
         """
@@ -65,7 +73,17 @@ class MicrowaveRAG:
         # - Create a FAISS vectorstore from chunks and self.embeddings using FAISS.from_documents()
         # - Save the index locally using vectorstore.save_local("microwave_faiss_index")
         # - Return the vectorstore
-        raise NotImplementedError
+        loader = TextLoader("microwave_manual.txt", encoding="utf-8")
+        documents = loader.load()
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=300,
+            chunk_overlap=50,
+            separators=["\n\n", "\n", "."],
+        )
+        chunks = splitter.split_documents(documents)
+        vectorstore = FAISS.from_documents(chunks, self.embeddings)
+        vectorstore.save_local("microwave_faiss_index")
+        return vectorstore
 
     def retrieve_context(self, query: str, k: int = 4, score=0.3):
         """
@@ -79,7 +97,14 @@ class MicrowaveRAG:
         # - Search the vectorstore using similarity_search_with_relevance_scores() with k and score_threshold parameters
         # - Iterate over results, collect each doc's page_content, and print its relevance score
         # - Return all collected chunks joined with "\n\n" as a single context string
-        raise NotImplementedError
+        results = self.vectorstore.similarity_search_with_relevance_scores(
+            query, k=k, score_threshold=score
+        )
+        chunks = []
+        for doc, relevance_score in results:
+            print(f"Relevance score: {relevance_score:.4f}")
+            chunks.append(doc.page_content)
+        return "\n\n".join(chunks)
 
     def augment_prompt(self, query: str, context: str):
         """
@@ -94,7 +119,9 @@ class MicrowaveRAG:
         # - Format _USER_PROMPT template substituting {context} and {query}
         # - Print the resulting augmented prompt
         # - Return the formatted string
-        raise NotImplementedError
+        augmented = _USER_PROMPT.format(context=context, query=query)
+        print(augmented)
+        return augmented
 
     def generate_answer(self, augmented_prompt: str):
         """
@@ -109,7 +136,17 @@ class MicrowaveRAG:
         # - Invoke self.llm_client with the messages list
         # - Print the response content
         # - Return the response content string
-        raise NotImplementedError
+        messages = [
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": augmented_prompt},
+        ]
+        response = self.llm_client.chat.completions.create(
+            model=_LLM_DEPLOYMENT,
+            messages=messages,
+        )
+        content = response.choices[0].message.content
+        print(content)
+        return content
 
 
 def main(rag: MicrowaveRAG):
@@ -120,7 +157,15 @@ def main(rag: MicrowaveRAG):
     #   - Step 1 (Retrieval):   call rag.retrieve_context() to fetch relevant chunks
     #   - Step 2 (Augmentation): call rag.augment_prompt() to build the prompt
     #   - Step 3 (Generation):  call rag.generate_answer() to get the LLM answer
-    raise NotImplementedError
+    print("===> Ask any question about your microwave manual.")
+    while True:
+        query = input("User: ")
+        if query.strip().lower() == "exit":
+            print("Goodbye!")
+            break
+        context = rag.retrieve_context(query)
+        augmented_prompt = rag.augment_prompt(query, context)
+        rag.generate_answer(augmented_prompt)
 
 
 #TODO:
@@ -128,3 +173,20 @@ def main(rag: MicrowaveRAG):
 # - Create OpenAIEmbeddings with model='text-embedding-3-small' and api_key=OPENAI_API_KEY
 # - Create ChatOpenAI with temperature=0.0, model='gpt-5.2' and api_key=OPENAI_API_KEY
 # - Wrap both in a MicrowaveRAG instance and pass it to main()
+embeddings = AzureOpenAIEmbeddings(
+    model="text-embedding-3-small-1",
+    azure_endpoint=DIAL_HOST,
+    api_key=SecretStr(OPENAI_API_KEY),
+    api_version=DIAL_API_VERSION,
+)
+#gpt-5.6-terra-2026-07-09
+llm_client = openai.AzureOpenAI(
+    azure_deployment=_LLM_DEPLOYMENT,
+    azure_endpoint=DIAL_HOST,
+    api_key=OPENAI_API_KEY,
+    api_version=DIAL_API_VERSION,
+)
+print('==> try to run application !!!!!!!!!!!!!!!!')
+print(embeddings.embed_query("enot")[:5])
+RAG = MicrowaveRAG(embeddings=embeddings, llm_client=llm_client)
+main(RAG)
