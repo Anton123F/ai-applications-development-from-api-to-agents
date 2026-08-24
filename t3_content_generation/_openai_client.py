@@ -13,12 +13,12 @@ class OpenAIClientT3:
         if not api_key:
             raise ValueError("API key cannot be null or empty")
 
-        self._api_key = "Bearer " + api_key
+        self._api_key = api_key
         self._endpoint = endpoint
 
     def call(self, print_request = True, print_response = True, **kwargs) -> dict[str, Any]:
         headers = {
-            "Authorization": self._api_key,
+            "api-key": self._api_key,
             "Content-Type": "application/json"
         }
 
