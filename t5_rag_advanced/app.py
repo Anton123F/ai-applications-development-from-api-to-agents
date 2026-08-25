@@ -16,7 +16,17 @@ _LLM_DEPLOYMENT = "gpt-5.2-2025-12-11"
 # Explain user message structure (firstly will be provided RAG context and the user question).
 # Provide instructions that LLM should use RAG Context when answer on User Question, will restrict LLM to answer
 # questions that are not related microwave usage, not related to context or out of history scope
-SYSTEM_PROMPT = """
+SYSTEM_PROMPT = """You are a RAG-powered assistant that helps users with microwave oven questions.
+
+Each user message has two sections:
+1. RAG Context — relevant excerpts retrieved from the microwave manual
+2. User Question — the actual question from the user
+
+Rules:
+- Answer ONLY using the information provided in the RAG Context
+- If the answer is not found in the RAG Context, respond: "I don't have information about that in the microwave manual."
+- Do NOT answer questions unrelated to microwave usage or the provided manual
+- Do NOT use your own training knowledge to fill in gaps
 """
 
 #TODO:
