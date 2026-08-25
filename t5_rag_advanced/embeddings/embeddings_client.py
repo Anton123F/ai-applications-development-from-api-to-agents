@@ -39,6 +39,29 @@ class EmbeddingsClient:
         # ---
         # Provide implementation that will generate embeddings for `inputs` list (don't forget about dimensions) with
         # Embedding model and return back a dict with indexed embeddings (key is index from input list and value vector list)
+        if isinstance(inputs, str):
+            inputs = [inputs]
+
+        headers = {
+            "Authorization": self._api_key,
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": self._model_name,
+            "input": inputs,
+            "dimensions": dimensions
+        }
+
+        response = requests.post(self._endpoint, headers=headers, json=payload, timeout=60)
+
+        if response.status_code != 200:
+            raise Exception(f"HTTP {response.status_code}: {response.text}")
+
+        data = response.json()
+        if print_response:
+            print(json.dumps(data, indent=2))
+
+        return {item["index"]: item["embedding"] for item in data["data"]}
 
 
 # Hint:
