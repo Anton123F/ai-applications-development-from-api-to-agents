@@ -193,8 +193,6 @@ async def main():
 
     vectorstore = load_vectorstore()
 
-    return
-
     while True:
         user_question = input("> ").strip()
         if not user_question:
