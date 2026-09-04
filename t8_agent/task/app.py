@@ -26,7 +26,41 @@ def main():
     #    - Add User message to Conversation
     #    - Call OpenAIClient with conversation history
     #    - Add Assistant message to Conversation and print its content
-    raise NotImplementedError()
+    user_client = UserServiceClient()
+    tools = [
+        CreateUserTool(user_client), 
+        DeleteUserTool(user_client), 
+        GetUserByIdTool(user_client), 
+        SearchUsersTool(user_client), 
+        UpdateUserTool(user_client),
+        WebSearchTool(OPENAI_API_KEY)
+    ]
+
+    openai_agent = OpenAIBasedAgent(
+        model="gpt-5.2-2025-12-11",
+        tools=tools,
+        api_key=OPENAI_API_KEY,
+        system_prompt=SYSTEM_PROMPT,
+    )
+    conversation = Conversation()
+
+    while True:
+        user_input = input("> ").strip()
+        if user_input.lower() == 'exit':
+            print("Exiting the chat session.")
+            break
+        if not user_input:
+            continue
+
+        conversation.add_message(Message(role=Role.USER, content=user_input))
+
+        try:
+            response = openai_agent.get_response(conversation.get_messages())
+            conversation.add_message(response)
+            print(response.content)
+        except Exception as e:
+            print(f"Error: {e}")
+            continue
 
 
 main()

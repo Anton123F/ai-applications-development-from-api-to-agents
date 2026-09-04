@@ -72,6 +72,25 @@ class BaseTool(ABC):
         """
         pass
 
+
+
+        # "type": "function",
+        # "function": {
+        #     "name": "function_name",
+        #     "description": "Clear explanation of what the function does and when the model should call it.",
+        #     "parameters": {
+        #     "type": "object",
+        #     "properties": {
+        #         "parameter_name": {
+        #             "type": "string",
+        #             "description": "Description of the specific input."
+        #         }
+        #     },
+        #     "required": ["parameter_name"],
+        #     "additionalProperties": false
+        #     },
+        #     "strict": true
+        # }
     @property
     def openai_schema(self) -> dict[str, Any]:
         """Tool schema formatted for the OpenAI Chat Completions API.
@@ -83,7 +102,14 @@ class BaseTool(ABC):
         """
         #TODO:
         # Provide dict with tool configuration in according to OpenAI Spec
-        raise NotImplementedError
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": self.input_schema
+            }
+        }
 
     @property
     def anthropic_schema(self) -> dict[str, Any]:
@@ -96,4 +122,8 @@ class BaseTool(ABC):
         """
         #TODO:
         # Provide dict with tool configuration in according to Anthropic Spec
-        raise NotImplementedError
+        return {
+            "name": self.name,
+            "description": self.description,
+            "input_schema": self.input_schema
+        }
