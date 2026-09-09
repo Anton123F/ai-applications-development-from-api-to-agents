@@ -30,8 +30,91 @@ async def main():
     #    - if user_input.lower() == 'exit': break
     #    - append Message(role=Role.USER, content=user_input) to `messages`
     #    - call `await agent.get_response(messages)` and append the returned `ai_message` to `messages`
-    raise NotImplementedError()
 
+#======================> HTTP MCP Client <=====================
+    async with HttpMCPClient(mcp_server_url="http://localhost:8005/mcp") as http_mcp_client:
+        resourses = await http_mcp_client.get_resources()
+        print(f"List of available resourses: =>>>>>>>>>>> \n{resourses}")
+        tools = await http_mcp_client.get_tools() 
+        print(f"List of available tools: =>>>>>>>>>>> \n {tools}")
+        agent_mcp = AgentMCPFundamentals(
+            model="gpt-5.2-2025-12-11", 
+            tools=tools, 
+            api_key=OPENAI_API_KEY, 
+            mcp_client=http_mcp_client
+        )
+        messages = [Message(role=Role.SYSTEM, content=SYSTEM_PROMPT)]
+        print(await http_mcp_client.get_prompts())
+        while True:
+            user_input = input('=> please enter agent question => ').strip()
+            if user_input.lower() == 'exit':
+                break
+            if user_input == '':
+                continue
+            user_message = Message(role=Role.USER, content=user_input)
+            messages.append(user_message)
+            ai_response = await agent_mcp.get_response(messages=messages)
+            messages.append(ai_response)
+
+
+
+#======================> STDIO MCP Client <=====================
+    # PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    # STDIO_SERVER_PATH = PROJECT_ROOT / "t9_mcp_fundamentals" / "mcp_server" / "stdio_server.py"
+
+    # async with StdioMCPClient(
+    #     command=sys.executable,
+    #     args=[str(STDIO_SERVER_PATH)],
+    #     env={**os.environ, "PYTHONPATH": str(PROJECT_ROOT)}
+    # ) as mcp_client:
+    #     resourses = await mcp_client.get_resources()
+    #     print(f"List of available resourses: =>>>>>>>>>>> \n{resourses}")
+    #     tools = await mcp_client.get_tools() 
+    #     print(f"List of available tools: =>>>>>>>>>>> \n {tools}")
+    #     agent_mcp = AgentMCPFundamentals(
+    #         model="gpt-5.2-2025-12-11", 
+    #         tools=tools, 
+    #         api_key=OPENAI_API_KEY, 
+    #         mcp_client=mcp_client
+    #     )
+    #     messages = [Message(role=Role.SYSTEM, content=SYSTEM_PROMPT)]
+    #     print(await mcp_client.get_prompts())
+    #     while True:
+    #         user_input = input('=> please enter agent question => ').strip()
+    #         if user_input.lower() == 'exit':
+    #             break
+    #         if user_input == '':
+    #             continue
+    #         user_message = Message(role=Role.USER, content=user_input)
+    #         messages.append(user_message)
+    #         ai_response = await agent_mcp.get_response(messages=messages)
+    #         messages.append(ai_response)
+
+
+#======================> Docker MCP Client <=====================
+    # async with StdioMCPClient(docker_image="mcp/duckduckgo:latest") as mcp_client:
+    #     resourses = await mcp_client.get_resources()
+    #     print(f"List of available resourses: =>>>>>>>>>>> \n{resourses}")
+    #     tools = await mcp_client.get_tools() 
+    #     print(f"List of available tools: =>>>>>>>>>>> \n {tools}")
+    #     agent_mcp = AgentMCPFundamentals(
+    #         model="gpt-5.2-2025-12-11", 
+    #         tools=tools, 
+    #         api_key=OPENAI_API_KEY, 
+    #         mcp_client=mcp_client
+    #     )
+    #     messages = [Message(role=Role.SYSTEM, content=SYSTEM_PROMPT)]
+    #     print(await mcp_client.get_prompts())
+    #     while True:
+    #         user_input = input('=> please enter agent question => ').strip()
+    #         if user_input.lower() == 'exit':
+    #             break
+    #         if user_input == '':
+    #             continue
+    #         user_message = Message(role=Role.USER, content=user_input)
+    #         messages.append(user_message)
+    #         ai_response = await agent_mcp.get_response(messages=messages)
+    #         messages.append(ai_response)
 
 if __name__ == "__main__":
     asyncio.run(main())

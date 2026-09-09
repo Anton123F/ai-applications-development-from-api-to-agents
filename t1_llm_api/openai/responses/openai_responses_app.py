@@ -7,17 +7,17 @@ from t1_llm_api.openai.responses.custom_client import CustomOpenAIResponsesClien
 
 openai_client = OpenAIResponsesClient(
     endpoint=OPENAI_RESPONSES_ENDPOINT,
-    model_name='gpt-5.2',
+    model_name='gpt-5.2-2025-12-11',
     api_key=OPENAI_API_KEY,
     system_prompt=DEFAULT_SYSTEM_PROMPT,
 )
 openai_custom_client = CustomOpenAIResponsesClient(
     endpoint=OPENAI_RESPONSES_ENDPOINT,
-    model_name='gpt-5.2',
+    model_name='gpt-5.2-2025-12-11',
     api_key=OPENAI_API_KEY,
     system_prompt=DEFAULT_SYSTEM_PROMPT,
 )
 
 asyncio.run(
-    start(False, openai_client)
+    start(True, openai_custom_client)
 )

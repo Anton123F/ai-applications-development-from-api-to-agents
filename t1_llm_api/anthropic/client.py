@@ -35,7 +35,13 @@ class AnthropicAIClient(AIClient):
         # Useful links with request/response samples:
         #   - https://docs.anthropic.com/en/api/overview
         #   - https://docs.anthropic.com/en/api/messages
-        raise NotImplementedError
+        super().__init__(endpoint=endpoint, model_name=model_name, api_key=api_key, system_prompt=system_prompt)
+    
+        self.model_name = model_name
+        self.system_prompt = system_prompt
+        
+        self.client = Anthropic(api_key=api_key)
+        self.async_client = AsyncAnthropic(api_key=api_key)
 
     def response(self, messages: list[Message], **kwargs) -> Message:
         """
@@ -58,7 +64,23 @@ class AnthropicAIClient(AIClient):
         # - Call client
         # - Print response to console
         # - Return ASSISTANT message
-        raise NotImplementedError
+        kwargs.setdefault("max_tokens", 1024)
+
+
+        all_messages = [{"role": m.role, "content": m.content} for m in messages]
+        response = self.client.messages.create(
+            model=self.model_name,
+            system=self.system_prompt,
+            messages=all_messages,
+            **kwargs
+        )
+
+        assistant_text = "".join(
+            block.text for block in response.content if hasattr(block, "text")
+        )
+
+        print(assistant_text)
+        return Message(role="assistant", content=assistant_text)
 
     async def stream_response(self, messages: list[Message], **kwargs) -> Message:
         """
@@ -84,4 +106,21 @@ class AnthropicAIClient(AIClient):
         # - Handle stream with chunks
         # - Print response to console
         # - Return ASSISTANT message
-        raise NotImplementedError
+        kwargs.setdefault("max_tokens", 1024)
+
+        full_response_text = ""
+
+        all_messages = [{"role": m.role, "content": m.content} for m in messages]
+
+        async with self.async_client.messages.stream(
+            model=self.model_name,
+            system=self.system_prompt,
+            messages=all_messages,
+            **kwargs
+        ) as stream:
+            async for text in stream.text_stream:
+                print(text, end="", flush=True)
+                full_response_text += text
+
+        print()
+        return Message(role="assistant", content=full_response_text)

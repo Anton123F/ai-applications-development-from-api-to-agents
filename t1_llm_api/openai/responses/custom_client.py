@@ -43,7 +43,29 @@ class CustomOpenAIResponsesClient(BaseOpenAIClient):
         # - Parse response
         # - Print response to console
         # - Return ASSISTANT message
-        raise NotImplementedError
+        headers = {
+            "api-key": self._api_key.replace("Bearer ", ""),
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": self._model_name,
+            "input": [{"role": msg.role, "content": msg.content} for msg in messages],
+            "instructions": self._system_prompt
+        }
+
+        url = self._endpoint
+        resp = requests.post(url, headers=headers, json=payload)
+
+        if resp.status_code != 200:
+            raise Exception(f"API request failed with status code {resp.status_code}: {resp.text}")
+        output = resp.json()
+        try:
+            assistant_content = output["output"][0]["content"][0]["text"]
+        except (KeyError, IndexError) as e:
+            raise ValueError("The API response contains no output text.") from e
+        print(assistant_content)
+        return Message(role=Role.ASSISTANT, content=assistant_content)
+        
 
     async def stream_response(self, messages: list[Message], **kwargs) -> Message:
         """
@@ -73,4 +95,62 @@ class CustomOpenAIResponsesClient(BaseOpenAIClient):
         # - Parse response
         # - Print chunks to console
         # - Return ASSISTANT message
-        raise NotImplementedError
+        headers = {
+            "api-key": self._api_key.replace("Bearer ", ""),
+            "Content-Type": "application/json"
+        }
+        messages = [{"role": msg.role, "content": msg.content} for msg in messages]
+        payload = {
+            "model": self._model_name,
+            "input": messages,
+            "instructions": self._system_prompt,
+            "stream": True,
+        }
+        url = self._endpoint
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, headers=headers) as response:
+                if response.status != 200:
+                    raise Exception(f"HTTP request failed with status {response.status}: {await response.text()}")
+                
+                collected_content = []
+                buffer = bytearray()
+                current_event_type = ""
+
+                async for chunk in response.content.iter_any():
+                    if not chunk:
+                        continue
+                    buffer.extend(chunk)
+                    
+                    while b"\n" in buffer:
+                        line_bytes, _, buffer = buffer.partition(b"\n")
+                        line = line_bytes.decode("utf-8", errors="ignore").strip()
+
+                        if not line or line.startswith(":"):
+                            continue
+
+                        if line.startswith("event: "):
+                            current_event_type = line[7:].strip()
+                            continue
+
+                        if line.startswith("data: "):
+                            data_str = line[6:].strip()
+
+                            if data_str == "[DONE]":
+                                break
+
+                            try:
+                                event_data = json.loads(data_str)
+                                delta = ""
+
+                                if current_event_type == "response.output_text.delta":
+                                    delta = event_data.get("delta", "")
+
+                                if delta:
+                                    collected_content.append(delta)
+                                    print(delta, end="", flush=True)
+
+                            except json.JSONDecodeError:
+                                continue
+
+                full_content = "".join(collected_content)
+                return Message(role=Role.ASSISTANT, content=full_content)

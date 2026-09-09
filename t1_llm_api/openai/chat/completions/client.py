@@ -3,7 +3,8 @@ from openai import AzureOpenAI, AsyncAzureOpenAI
 from commons.models.message import Message
 from commons.models.role import Role
 from t1_llm_api.openai.base import BaseOpenAIClient
-
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 class OpenAIClient(BaseOpenAIClient):
     """

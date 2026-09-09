@@ -31,5 +31,5 @@ openai_custom_client = CustomOpenAIClient(
 # )
 
 asyncio.run(
-    start(True, openai_custom_client)
+    start(False, openai_client)
 )

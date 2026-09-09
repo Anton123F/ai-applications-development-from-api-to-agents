@@ -18,10 +18,10 @@ gemini_custom_client = CustomGeminiAIClient(
     system_prompt=DEFAULT_SYSTEM_PROMPT,
 )
 
-# asyncio.run(
-#     start(False, gemini_custom_client)
-# )
-
 asyncio.run(
-    start(True, gemini_custom_client)
+    start(False, gemini_custom_client)
 )
+
+# asyncio.run(
+#     start(True, gemini_custom_client)
+# )
