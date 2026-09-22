@@ -40,8 +40,10 @@ def _generate_pkce_pair() -> tuple[str, str]:
     # 3. Base64url-encode the digest (strip trailing `=` padding) to get `code_challenge`
     #    Hint: use `base64.urlsafe_b64encode(...).rstrip(b"=").decode()`
     # 4. Return `(code_verifier, code_challenge)`
-    raise NotImplementedError()
-
+    code_verifier = secrets.token_urlsafe(64)
+    sha256_hash = hashlib.sha256(code_verifier.encode("utf-8")).digest()
+    code_challenge = base64.urlsafe_b64encode(sha256_hash).rstrip(b"=").decode("utf-8")
+    return code_verifier, code_challenge
 
 def _build_auth_url(code_challenge: str, state: str) -> str:
     """Build the Keycloak /authorize URL with PKCE parameters"""
@@ -49,7 +51,17 @@ def _build_auth_url(code_challenge: str, state: str) -> str:
     # 1. Build a `params` dict with: response_type, client_id, redirect_uri, scope,
     #    state, code_challenge, code_challenge_method ("S256")
     # 2. Return `f"{AUTH_ENDPOINT}?{urlencode(params)}"`
-    raise NotImplementedError()
+    params = {
+        "response_type": "code",
+        "client_id": CLIENT_ID,           
+        "redirect_uri": REDIRECT_URI,     
+        "scope": "openid",               
+        "state": state,
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
+    }
+    
+    return f"{AUTH_ENDPOINT}?{urlencode(params)}"
 
 
 # ==================== LOCAL CALLBACK SERVER ====================
@@ -113,7 +125,22 @@ async def _exchange_code_for_tokens(code: str, code_verifier: str) -> dict:
     # 1. Send a POST to `TOKEN_ENDPOINT` with form data:
     #    grant_type="authorization_code", client_id, redirect_uri, code, code_verifier
     # 2. Call `.raise_for_status()` and return the parsed JSON response
-    raise NotImplementedError()
+    payload = {
+        "grant_type": "authorization_code",
+        "client_id": CLIENT_ID,         
+        "redirect_uri": REDIRECT_URI,
+        "code": code,
+        "code_verifier": code_verifier,
+    }
+    
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(TOKEN_ENDPOINT, data=payload, headers=headers)
+        response.raise_for_status()
+        return response.json()
 
 
 async def _refresh_access_token(refresh_token: str) -> dict:
@@ -122,8 +149,20 @@ async def _refresh_access_token(refresh_token: str) -> dict:
     # 1. Send a POST to `TOKEN_ENDPOINT` with form data:
     #    grant_type="refresh_token", client_id, refresh_token
     # 2. Call `.raise_for_status()` and return the parsed JSON response
-    raise NotImplementedError()
+    payload = {
+            "grant_type": "refresh_token",
+            "client_id": CLIENT_ID,
+            "refresh_token": refresh_token,
+        }
+        
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
 
+    async with httpx.AsyncClient() as client:
+        response = await client.post(TOKEN_ENDPOINT, data=payload, headers=headers)
+        response.raise_for_status()
+        return response.json()
 
 # ==================== OAUTH TOKEN MANAGER ====================
 
@@ -185,18 +224,35 @@ class OAuthTokenManager:
         # 5. Print "🔄 Exchanging authorization code for tokens..."
         # 6. Call `_exchange_code_for_tokens(auth_code, code_verifier)` and store via `self._store_tokens`
         # 7. Print a success message including `tokens.get('expires_in')`
-        raise NotImplementedError()
+        if not ready_event.is_set():
+            raise TimeoutError()
+        if code_holder.get('error'):
+            raise RuntimeError(code_holder["error"])
+        if code_holder['state'] != state:
+            raise RuntimeError("CSRF state mismatch")
+        auth_code = code_holder.get('code')
+        if not auth_code:
+            raise RuntimeError()
+        print(f"🔄 Exchanging authorization code for tokens...")
+        tokens = await _exchange_code_for_tokens(auth_code, code_verifier)
+        self._store_tokens(tokens)
+        print(f"✅ Authenticated! Token expires in {tokens.get('expires_in')}s")
+        
 
     def _store_tokens(self, tokens: dict) -> None:
         #TODO:
         # 1. Store access_token and refresh_token from the `tokens` dict
         # 2. Calculate `self._expires_at` as `time.time() + expires_in - 30` (30s safety buffer)
-        raise NotImplementedError()
+        self._access_token = tokens.get('access_token')
+        self._refresh_token = tokens.get("refresh_token")
+        self._expires_at = time.time() + tokens.get('expires_in') - 30
 
     def is_token_expired(self) -> bool:
         """Returns True if the access token is missing or within 30s of expiry"""
         #TODO: Return True if `self._expires_at` is None or current time has passed it
-        raise NotImplementedError()
+        if self._expires_at is None or time.time() >= self._expires_at:
+            return True
+        return False
 
     async def refresh(self) -> None:
         """Refresh the access token using the stored refresh_token"""
@@ -204,11 +260,18 @@ class OAuthTokenManager:
         # 1. If no refresh token is available — raise `RuntimeError`
         # 2. Print "🔄 Refreshing access token...", call `_refresh_access_token`,
         #    store the result, then print "✅ Token refreshed"
-        raise NotImplementedError()
+        if not self._refresh_token:
+            raise RuntimeError()
+        print(f"🔄 Refreshing access token...")
+        tokens = await _refresh_access_token(self._refresh_token)
+        self._store_tokens(tokens)
+        print(f"✅ Token refreshed")
 
     async def auth_headers(self) -> dict[str, str]:
         """Return Authorization headers with the current access token"""
         #TODO:
         # 1. If no access token is stored — raise `RuntimeError`
         # 2. Return `{"Authorization": f"Bearer {self._access_token}"}`
-        raise NotImplementedError()
+        if not self._access_token:
+            raise RuntimeError()
+        return {"Authorization": f"Bearer {self._access_token}"}

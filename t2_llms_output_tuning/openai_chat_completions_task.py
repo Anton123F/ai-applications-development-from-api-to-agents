@@ -75,12 +75,12 @@ from t2_llms_output_tuning._main import run
 #  Positive = reduces repetition, negative = encourages repetition
 #  Query: "Write a paragraph about the ocean"
 #  Try: frequency_penalty=0.0 vs frequency_penalty=1.5
-# run(
-#     client=OpenAIChatCompletionsClient(model_name='gpt-4o'),
-#     print_request=True,
-#     print_only_content=False,
-#     frequency_penalty=1.5,  # try 0.0 to see repetitive output
-# )
+run(
+    client=OpenAIChatCompletionsClient(model_name='gpt-4o'),
+    print_request=True,
+    print_only_content=False,
+    frequency_penalty=0.0,  # try 0.0 to see repetitive output
+)
 
 # TODO 8: presence_penalty — penalizes tokens based on whether they appeared at all. Range: -2.0 to 2.0, default: 0
 #  ⚠️ Note: Will work for models like gpt-4o
@@ -114,7 +114,7 @@ run(
     client=OpenAIChatCompletionsClient(model_name='gpt-5.6-terra-2026-07-09'),
     print_request=True,
     print_only_content=False,
-    reasoning_effort="high",
+    reasoning_effort="low",
 )
 
 

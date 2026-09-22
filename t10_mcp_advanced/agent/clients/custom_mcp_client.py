@@ -41,7 +41,42 @@ class CustomMCPClient:
         #         Otherwise call `await response.json()` and assign to `response_data`
         #       - If "error" in `response_data`, extract `error = response_data["error"]` and raise RuntimeError(f"MCP Error {error['code']}: {error['message']}")
         #       - Return `response_data`
-        raise NotImplementedError()
+        if self.http_session is not None:
+            request_data = {
+                "jsonrpc": "2.0",
+                "id": str(uuid.uuid4()),
+                "method": method,
+            }
+            if params:
+                request_data['params'] = params
+            header = {
+                "Accept": "application/json,text/event-stream",
+            }
+            if self.session_id:
+                header[MCP_SESSION_ID_HEADER] = self.session_id
+            
+            async with self.http_session.post(
+                url=self.server_url, 
+                json=request_data, 
+                headers=header
+            ) as response:
+                if not self.session_id and response.headers.get(MCP_SESSION_ID_HEADER):
+                    self.session_id = response.headers.get(MCP_SESSION_ID_HEADER)
+                if response.status == 202:
+                    return {}
+                
+                content_type = response.headers.get('content-type', "")
+                if 'text/event-stream' in  content_type.lower():
+                    response_data = await self._parse_sse_response_streaming(response)
+                else:
+                    response_data = await response.json()
+                if "error" in response_data:
+                    error = response_data["error"]
+                    raise RuntimeError(f"MCP Error {error['code']}: {error['message']}")
+                return response_data
+        else:
+            raise RuntimeError('HTTP Session not initialized')
+
 
 
     async def _parse_sse_response_streaming(self, response: aiohttp.ClientResponse) -> dict[str, Any]:
@@ -69,8 +104,16 @@ class CustomMCPClient:
         #           - extract data part: `data_part = line[6:]` (remove 'data: ' prefix)
         #           - If `data_part != '[DONE]'`, then `return json.loads(data_part)` (we just need first chunk since MCP tool returns response with 1 chunk)
         # 2. raise RuntimeError("No valid data found in SSE response")
-
-        raise NotImplementedError()
+        async for line in response.content:
+            line_str = line.decode('utf-8').strip()
+            if not line_str or line_str.startswith(':'):
+                continue
+            if line_str.startswith('data: '):
+                data_part = line_str[6:]
+                if data_part != '[DONE]':
+                    return json.loads(data_part)
+        raise RuntimeError("No valid data found in SSE response")
+        
 
     async def connect(self) -> None:
         """Connect to MCP server and initialize session"""
@@ -87,7 +130,23 @@ class CustomMCPClient:
         #       - Call `await self._send_notification("notifications/initialized")`
         #       - Print capabilities (from init request)
         # 4. Catch Exception as `e` and raise RuntimeError(f"Failed to connect to MCP server: {e}")
-        raise NotImplementedError()
+        timeout = aiohttp.ClientTimeout(total=30, connect=10)
+        connector = aiohttp.TCPConnector(limit=100, limit_per_host=10)
+        self.http_session =  aiohttp.ClientSession(timeout=timeout, connector=connector)
+        try:
+            init_params = {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"tools": {}},
+                "clientInfo": {"name": "my-custom-mcp-client", "version": "1.0.0"},
+            }
+            initialize_result = await self._send_request("initialize", init_params)
+            await self._send_notification("notifications/initialized")
+            print(initialize_result)
+        except Exception as e:
+            raise RuntimeError(f"Failed to connect to MCP server: {e}")
+
+
+
 
     async def _send_notification(self, method: str) -> None:
         """Send notification (no response expected)"""
@@ -105,7 +164,25 @@ class CustomMCPClient:
         #       - json: request_data
         #       - headers: headers
         #    If MCP_SESSION_ID_HEADER exists in `response.headers`, set `self.session_id = response.headers[MCP_SESSION_ID_HEADER]` and print session ID
-        raise NotImplementedError()
+        if self.http_session is None:
+            raise RuntimeError("HTTP session not initialized")
+        request_data = {
+            "jsonrpc": "2.0",
+            "method": method
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+
+        }
+        if self.session_id:
+            headers[MCP_SESSION_ID_HEADER] = self.session_id
+        
+        async with self.http_session.post(url=self.server_url, json=request_data, headers=headers) as response:
+            if MCP_SESSION_ID_HEADER in response.headers:
+                self.session_id = response.headers[MCP_SESSION_ID_HEADER]
+                print(f"Sesssion id = {self.session_id}")
+
 
     async def get_tools(self) -> list[dict[str, Any]]:
         """Get available tools from MCP server"""
@@ -115,7 +192,21 @@ class CustomMCPClient:
         # 3. Extract tools from response. See response sample in postman
         # 4. Return list with dicts with tool schemas. It should be provided according to OpenAI specification
         # https://platform.openai.com/docs/guides/function-calling#defining-functions
-        raise NotImplementedError()
+        if self.http_session:
+            tools = []
+            response = await self._send_request("tools/list")
+
+            for tool in response.get('result', {}).get('tools', []):
+                tools.append({
+                    "type": "function",
+                    "function": {
+                        "name": tool.get("name"),
+                        "description": tool.get("description"),
+                        "parameters": tool.get("inputSchema", {})
+                    }
+                })
+            return tools
+
 
     async def call_tool(self, tool_name: str, tool_args: dict[str, Any]) -> Any:
         """Call a specific tool on the MCP server"""
@@ -145,4 +236,18 @@ class CustomMCPClient:
         # 8. print(f"    ⚙️: {text_result}\n")
         # 9. Return `text_result`
         # 10. If no content found, return "Unexpected error occurred!"
-        raise NotImplementedError()
+        if self.http_session is None:
+            raise RuntimeError("MCP client not connected. Call connect() first.")
+        print(f"    Calling `{tool_name}` with {tool_args}")
+        params = {
+            "name": tool_name,
+            "arguments": tool_args,
+        }
+        response = await self._send_request("tools/call", params)
+        if content:= response["result"].get("content", []):
+            if item := content[0]:
+                text_result = item.get("text", "")
+                print(f"    ⚙️: {text_result}\n")
+                return text_result
+        else:
+            return "Unexpected error occurred!"

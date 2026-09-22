@@ -7,7 +7,8 @@ from openai import AsyncOpenAI
 from commons.models.message import Message
 from commons.models.role import Role
 from t9_mcp_fundamentals.agent.mcp_clients.base import MCPClient
-
+from openai import AzureOpenAI, AsyncAzureOpenAI
+from commons.constants import OPENAI_CHAT_COMPLETIONS_ENDPOINT, DIAL_API_VERSION
 
 class AgentMCPAuth:
     """Handles AI model interactions and integrates with MCP client"""
@@ -16,7 +17,13 @@ class AgentMCPAuth:
         self.model=model
         self.tools = tools
         self.mcp_client = mcp_client
-        self.openai = AsyncOpenAI(api_key=api_key)
+        # self.openai = AsyncOpenAI(api_key=api_key)
+
+        self.openai = AsyncAzureOpenAI(
+            api_key=api_key,
+            api_version=DIAL_API_VERSION, 
+            azure_endpoint=OPENAI_CHAT_COMPLETIONS_ENDPOINT
+        )
 
     def _collect_tool_calls(self, tool_deltas):
         """Convert streaming tool call deltas to complete tool calls"""

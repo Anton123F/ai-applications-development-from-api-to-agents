@@ -6,7 +6,8 @@ from t11_mcp_auth.mcp_server.auth.oauth import JWTAuthMiddleware
 #TODO:
 # 1. Create the Starlette app by calling `mcp.streamable_http_app()` and assign to `app`
 # 2. Add `JWTAuthMiddleware` to the app
-raise NotImplementedError()
+app = mcp.streamable_http_app()
+app.add_middleware(JWTAuthMiddleware)
 
 if __name__ == "__main__":
     uvicorn.run(

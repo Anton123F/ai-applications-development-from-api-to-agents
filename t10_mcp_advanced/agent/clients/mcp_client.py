@@ -21,6 +21,11 @@ class MCPClient:
         await instance.connect()
         return instance
 
+    async def disconnect(self):
+        await self._session_context.__aexit__(None, None, None)
+        await self._streams_context.__aexit__(None, None, None)
+
+
     async def connect(self):
         """Connect to MCP server"""
         self._streams_context = streamablehttp_client(self.server_url)
@@ -62,8 +67,8 @@ class MCPClient:
 
         print(f"    ⚙️: {content}\n")
 
-        if isinstance(content, TextContent):
-            return content.text
+        if content and isinstance(content[0], TextContent):
+            return content[0].text
 
         return content
 

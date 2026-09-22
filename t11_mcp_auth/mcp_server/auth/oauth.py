@@ -5,6 +5,7 @@ from jose import jwt, JWTError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+import json
 
 # ==================== CONFIGURATION ====================
 
@@ -31,9 +32,19 @@ async def _get_jwks() -> dict:
     #    call `.raise_for_status()`, parse the JSON, and store it in `_jwks_cache`
     #    Print "🔑 Fetching JWKS from ..." before and "🔑 JWKS cached successfully" after
     # 2. Return `_jwks_cache`
-    raise NotImplementedError()
-
-
+    if _jwks_cache is None:
+        try:
+            print(f"🔑 Fetching JWKS from ...")
+            async with httpx.AsyncClient() as client:
+                response = await client.get(JWKS_URL)
+                response.raise_for_status()
+                _jwks_cache = response.json()
+            print(f"🔑 JWKS cached successfully")
+        except httpx.HTTPStatusError  as e:
+            print(f"HTTP error occurred: {e.response.status_code} - {e.response.text}")
+        except httpx.RequestError  as e:
+            print(f"Network connection error occurred: {e}")
+    return _jwks_cache
 # ==================== MIDDLEWARE ====================
 
 class JWTAuthMiddleware(BaseHTTPMiddleware):
@@ -47,10 +58,19 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         auth_header = request.headers.get("Authorization", "")
+        
 
         # ── Step 1: Check header presence ──────────────────────────────
         #TODO: If `auth_header` doesn't start with "Bearer " — return a 401 JSONResponse
-
+        if not auth_header.startswith('Bearer '):
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": "Unauthorized",
+                    "message": "Missing or invalid Authorization header. Expected 'Bearer <token>'."
+                }
+            ) 
+        
         token = auth_header.removeprefix("Bearer ")
 
         # ── Step 2: Validate JWT signature + claims ─────────────────────
@@ -59,11 +79,32 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         # 2. Decode the token with `jwt.decode` using algorithm `RS256`, the fetched JWKS,
         #    `issuer=ISSUER`, and `options={"verify_aud": False}`
         #    Wrap in try/except for `JWTError` and return a 401 JSONResponse on failure
+        try:
 
+            jwks = await _get_jwks()
+            claims = jwt.decode(token, jwks, algorithms="RS256", issuer=ISSUER, options={"verify_aud": False})
+        except JWTError as e:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": "Unauthorized",
+                    "message": "Missing or invalid Authorization header. Expected 'Bearer <token>'."
+                }
+            )
         # ── Step 3: Check realm role ────────────────────────────────────
         # Keycloak embeds roles in: claims["realm_access"]["roles"]
         #TODO:
         # 1. Extract the list of realm roles from the decoded claims
         # 2. If `REQUIRED_ROLE` is not present — return a 403 JSONResponse listing the user's roles
         # 3. Print the authenticated username and their roles, then pass the request to the next handler
-        raise NotImplementedError()
+        roles = claims.get("realm_access", {}).get("roles", [])
+        if REQUIRED_ROLE not in roles:
+            return JSONResponse(
+                status_code=403,
+                content={
+                        "error": "Forbidden", 
+                        "roles": roles
+                    }
+            )
+        print(f"✅ {claims.get('preferred_username')} roles: {roles}")
+        return await call_next(request)

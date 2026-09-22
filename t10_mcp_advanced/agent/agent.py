@@ -9,6 +9,9 @@ from commons.models.role import Role
 from t10_mcp_advanced.agent.clients.custom_mcp_client import CustomMCPClient
 from t10_mcp_advanced.agent.clients.mcp_client import MCPClient
 
+from openai import AzureOpenAI, AsyncAzureOpenAI
+from commons.constants import OPENAI_CHAT_COMPLETIONS_ENDPOINT, DIAL_API_VERSION
+
 
 class CustomAgentMCP:
     """Handles AI model interactions and integrates with MCP client"""
@@ -23,7 +26,12 @@ class CustomAgentMCP:
         self.model = model
         self.tools = tools
         self.tool_name_client_map = tool_name_client_map
-        self.openai = AsyncOpenAI(api_key=api_key)
+        # self.openai = AsyncOpenAI(api_key=api_key)
+        self.openai = AsyncAzureOpenAI(
+            api_key=api_key, 
+            api_version=DIAL_API_VERSION, 
+            azure_endpoint=OPENAI_CHAT_COMPLETIONS_ENDPOINT
+        )
 
     def _collect_tool_calls(self, tool_deltas):
         """Convert streaming tool call deltas to complete tool calls"""

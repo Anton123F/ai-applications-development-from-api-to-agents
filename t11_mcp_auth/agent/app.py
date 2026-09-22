@@ -22,7 +22,32 @@ async def main():
     #    - Get user input; break if it equals "exit"
     #    - Append a user `Message` to `messages`
     #    - Call `await agent.get_completion(messages)` and append the returned `ai_message`
-    raise NotImplementedError()
+
+    async with OauthHttpMCPClient(mcp_server_url="http://localhost:8008/mcp") as mcp_client:
+    # async with ApiKeyMCPClient(
+    #     mcp_server_url="http://localhost:8007/mcp",
+    #     api_key=MCP_API_KEY
+    # ) as mcp_client:
+        tools = await mcp_client.get_tools()
+        for tool in tools:
+            print(json.dumps(tool, indent=4))
+            print("=" * 40)
+
+        agent = AgentMCPAuth(
+            api_key=OPENAI_API_KEY,
+            model="gpt-5.2-2025-12-11",
+            tools=tools,
+            mcp_client=mcp_client
+        )
+        messages = [Message(role=Role.SYSTEM, content=DEFAULT_SYSTEM_PROMPT)]
+
+        while True:
+            user_input = input(f"please, enter your message: => ")
+            if user_input.strip().lower() == 'exit':
+                break;
+            messages.append(Message(role=Role.USER, content=user_input))
+            response = await agent.get_completion(messages)
+            messages.append(response)
 
 
 if __name__ == "__main__":

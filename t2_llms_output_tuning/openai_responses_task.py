@@ -12,12 +12,11 @@ from t2_llms_output_tuning._main import run
 # TODO 1: temperature — controls randomness. Range: 0.0-2.0, default: 1.0
 #  Query: "Give me a name for a coffee shop"
 #  Try: temperature=0.0 vs temperature=2.0, compare outputs
-run(
-    client=OpenAIResponsesClient('gpt-5.6-terra-2026-07-09'),
-    print_request=True,
-    print_only_content=False,
-    temperature=0.0,
-)
+# run(
+#     client=OpenAIResponsesClient('gpt-5.6-terra-2026-07-09'),
+#     print_request=True,
+#     print_only_content=False,
+# )
 
 # TODO 2: top_p — nucleus sampling. Range: 0.0-1.0, default: 1.0
 #  Query: "List 5 alternative uses for a paperclip"
@@ -36,19 +35,19 @@ run(
 #     client=OpenAIResponsesClient('gpt-5.6-terra-2026-07-09'),
 #     print_request=True,
 #     print_only_content=False,
-#     max_output_tokens=50,  # try 2048 for full response
+#     max_output_tokens=2048,  # try 2048 for full response
 # )
 
 # TODO 4: text — structured output format (replaces "response_format" from Chat Completions)
 #  Uses text={"format": {...}} instead of response_format={...}
 #  Query: "List 3 programming languages with their year of creation"
 #  Try: text={"format": {"type": "json_schema", "name": "languages", "strict": True, "schema": {"type": "object", "properties": {"languages": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}, "year": {"type": "integer"}}, "required": ["name", "year"], "additionalProperties": False}}}, "required": ["languages"], "additionalProperties": False}}}
-# run(
-#     client=OpenAIResponsesClient('gpt-5.6-terra-2026-07-09'),
-#     print_request=True,
-#     print_only_content=False,
-#     text={"format": {"type": "json_schema", "name": "languages", "strict": True, "schema": {"type": "object", "properties": {"languages": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}, "year": {"type": "integer"}}, "required": ["name", "year"], "additionalProperties": False}}}, "required": ["languages"], "additionalProperties": False}}},
-# )
+run(
+    client=OpenAIResponsesClient('gpt-5.6-terra-2026-07-09'),
+    print_request=True,
+    print_only_content=False,
+    text={"format": {"type": "json_schema", "name": "languages", "strict": True, "schema": {"type": "object", "properties": {"languages": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}, "year": {"type": "integer"}}, "required": ["name", "year"], "additionalProperties": False}}}, "required": ["languages"], "additionalProperties": False}}},
+)
 
 # TODO 5: truncation — controls how long contexts are handled. Default: "disabled"
 #  "auto" = drops older input messages to fit context window
