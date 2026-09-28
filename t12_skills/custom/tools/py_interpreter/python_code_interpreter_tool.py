@@ -24,7 +24,11 @@ class PythonCodeInterpreterTool(BaseTool):
         #TODO:
         # - Iterate over mcp_tool_models and assign the one matching tool_name to self._code_execute_tool
         # - If not found, raise ValueError listing the available tool names
-        raise NotImplementedError()
+        for mcp_model in mcp_tool_models:
+            if tool_name == mcp_model.name:
+                self._code_execute_tool = mcp_model
+        if not self._code_execute_tool:
+            raise ValueError(f"Tool '{tool_name}' not found. Available: {[m.name for m in mcp_tool_models]}")
 
     @classmethod
     async def create(
@@ -38,17 +42,19 @@ class PythonCodeInterpreterTool(BaseTool):
         # - Create a T12MCPClient by connecting to mcp_url (use T12MCPClient.create)
         # - Fetch the available tools from the MCP client
         # - Instantiate and return cls with the client, tools, tool_name, and skills_dir
-        raise NotImplementedError()
+        client = await T12MCPClient.create(mcp_url)
+        tools = await client.get_tools()
+        return cls(client, tools, tool_name, skills_dir)
 
     @property
     def name(self) -> str:
         #TODO: Return the tool name from self._code_execute_tool
-        raise NotImplementedError()
+        return self._code_execute_tool.name
 
     @property
     def description(self) -> str:
         #TODO: Return the tool description from self._code_execute_tool
-        raise NotImplementedError()
+        self._code_execute_tool.description
 
     @property
     def parameters(self) -> dict[str, Any]:
@@ -57,7 +63,16 @@ class PythonCodeInterpreterTool(BaseTool):
         # - Add an extra optional string property "script_path" describing that the tool
         #   will prepend the file content to the code before execution
         # - Return the extended parameters dict
-        raise NotImplementedError()
+        return {
+            "type": "object", 
+            "properties": {
+                **self._code_execute_tool.parameters["properties"], 
+                "script_path": {
+                    "type": "string", 
+                    "description": "tool will prepend the file content to the code before execution"}
+                }
+        }
+
 
     async def _execute(self, arguments: dict[str, Any]) -> str:
         #TODO:
@@ -70,4 +85,14 @@ class PythonCodeInterpreterTool(BaseTool):
         # - Call self._mcp_client.call_tool with the tool name and args
         # - Parse the returned content into _ExecutionResult using model_validate_json
         # - Return the result serialized as JSON using model_dump_json
-        raise NotImplementedError()
+        if arguments.get("script_path"):
+            full_path = self._skills_dir / arguments['script_path'].lstrip("/")
+            script_content = get_file_content(full_path)
+            code = script_content + "\n\n" + arguments["code"]
+            session_id = arguments.get("session_id", "")
+            args = {"code": code, "session_id": session_id}
+        else:
+            args = arguments
+        result = await self._mcp_client.call_tool(tool_name=self._code_execute_tool.name, tool_args=args)
+        parsed_result = _ExecutionResult.model_validate_json(result)
+        return parsed_result.model_dump_json()

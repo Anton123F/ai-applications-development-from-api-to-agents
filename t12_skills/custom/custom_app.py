@@ -12,6 +12,8 @@ from t12_skills.custom.tools.base import BaseTool
 from t12_skills.custom.models import SkillMetadata, load_skills
 from t12_skills.custom.tools.py_interpreter.python_code_interpreter_tool import PythonCodeInterpreterTool
 from t12_skills.custom.tools.skills.read_skill_tool import ReadSkillTool
+from openai import AzureOpenAI, AsyncAzureOpenAI
+from commons.constants import OPENAI_CHAT_COMPLETIONS_ENDPOINT, OPENAI_API_KEY, DEFAULT_SYSTEM_PROMPT
 
 SKILLS_DIR = Path(__file__).parent / "_skills"
 MCP_URL = "http://localhost:8050/mcp"
@@ -74,7 +76,35 @@ async def main():
     # - Create a T12Agent with an OpenAI client, model "gpt-5.2", and the tools list
     # - Run a chat loop: read user input, break on "exit",
     #   append USER message, call agent.chat_completion, append the returned assistant message
-    raise NotImplementedError()
+
+
+
+    messages: list[Message] = [Message(role=Role.SYSTEM, content=system_prompt)]
+    
+    python_code_interpreter = await PythonCodeInterpreterTool.create(mcp_url=MCP_URL, skills_dir=SKILLS_DIR, tool_name=MCP_TOOL_NAME)
+    tools = [ReadSkillTool(skills_dir=SKILLS_DIR), python_code_interpreter]
+    openai_client = AsyncAzureOpenAI(
+        api_key=OPENAI_API_KEY, 
+        api_version="2025-04-01-preview", 
+        azure_endpoint=OPENAI_CHAT_COMPLETIONS_ENDPOINT,
+    )
+
+    client = T12Agent(
+        model="gpt-5.6-terra-2026-07-09",
+        tools=tools,
+        client=openai_client,
+    )
+
+    while True:
+        user_input  = input(" Please enter question :=> ")
+        if user_input.strip() == 'exit':
+            break
+        user_message = Message(role=Role.USER, content=user_input)
+        messages.append(user_message)
+        response = await client.chat_completion(messages=messages)
+        messages.append(response)
+
+
 
 
 if __name__ == "__main__":

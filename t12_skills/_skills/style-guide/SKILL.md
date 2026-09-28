@@ -1,24 +1,36 @@
 ---
 name: style-guide
 description: >
-  # TODO: Write when the agent should activate this skill.
-  # Cover: what content types it handles and what user actions trigger it.
+  Activates whenever the user asks to review, edit, rewrite, or 
+  generate content (such as blog posts, emails, lessons, or social media copy) 
+  following the brand's Empathetic Mentor writing style.
 ---
 
 # Style Guide Skill
 
-<!--
-TODO: Fill in this SKILL.md to teach the agent how to apply your brand's writing style.
-
 ## File Map
-List supporting files the agent should reference (REFERENCE.md, EXAMPLES.md).
+For references use these files:
+1) /_skills/style-guide/EXAMPLES.md
+2) /_skills/style-guide/REFERENCE.md 
 
 ## Workflow
-Step-by-step: identify content type → apply core principles → use REFERENCE.md for type rules → use EXAMPLES.md for rewrites → return polished text with a brief changelog.
+Step-by-step: 
+1. Identify content type → 
+2. Apply core principles → 
+3. Use REFERENCE.md for type rules → 
+4. Use EXAMPLES.md for rewrites → 
+5. Return polished text with a brief changelog.
 
 ## Core Principles
-Define: Voice, Tone, Length preference, Person (you/we).
+- **Voice:** Warm, encouraging, approachable, and empathetic. 
+- **Tone:** Supportive, conversational, warm, and inspiring. It feels like a trusted mentor guiding a friend.
+- **Length Preference:** Story-driven and reader-friendly. Uses relatable examples, smooth conversational transitions, and comfortable, supportive pacing.
+- **Person:** Direct and personal. Addresses the reader as **"you"** and uses **"I"** or collaborative **"we"** to foster a sense of partnership.
 
 ## Instant Rules
-Quick checklist: jargon, passive voice, contractions, numbers, Oxford comma, punctuation.
--->
+- **Jargon:** Zero jargon; explain all concepts simply, clearly, and accessibly.
+- **Passive voice:** Avoid entirely to keep the writing personal, direct, and active.
+- **Contractions:** Heavily used (e.g., *don't, you're, let's*) to sound natural, warm, and conversational.
+- **Numbers:** Spell out numbers under 10 (e.g., *three steps, five ways*) for a softer, narrative flow.
+- **Oxford comma:** Optional, but maintain strict consistency throughout the piece.
+- **Punctuation:** Friendly and expressive punctuation (thoughtful questions, occasional warm exclamation marks, and em-dashes for conversational asides).
