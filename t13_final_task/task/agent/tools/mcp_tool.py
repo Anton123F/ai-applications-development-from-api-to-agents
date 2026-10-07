@@ -14,7 +14,7 @@ class McpTool(BaseTool):
 
     async def _execute(self, arguments: dict[str, Any]) -> str:
         #TODO: delegate to self._client.call_tool(self.name, arguments)
-        raise NotImplementedError()
+        return await self._client.call_tool(self.name, arguments)
 
     @property
     def name(self) -> str:

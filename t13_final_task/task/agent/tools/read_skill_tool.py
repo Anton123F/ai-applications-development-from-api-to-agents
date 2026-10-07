@@ -43,4 +43,17 @@ class ReadSkillTool(BaseTool):
         # - Strip leading "/" from arguments["path"], resolve full path under self._skills_dir
         # - Return error string if path not found or not a file
         # - Return file contents as UTF-8 string
-        raise NotImplementedError()
+
+        try:
+            raw_path: str = arguments["path"]
+            path = raw_path.lstrip('/')
+            full_path = (self._skills_dir / path).resolve()
+            
+            if not full_path.exists():
+                raise FileNotFoundError(f"file does not exist: {full_path}")
+            if not full_path.is_file():
+                raise FileNotFoundError(f"path is not a file: {full_path}")
+
+            return full_path.read_text(encoding="utf-8")
+        except Exception as e:
+            return f"Error: {str(e)}"
